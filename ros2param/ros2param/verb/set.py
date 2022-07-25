@@ -86,7 +86,13 @@ class SetVerb(VerbExtension):
             results = response.results
 
             for i, result in enumerate(results):
-                print('Set parameter ' + parameters[i].name + ' ' +
-                      'successful' if result.successful else 'failed' +
-                      str(result.reason) if result.reason else '',
-                      file=sys.stderr if result.successful else sys.stdout)
+                if result.successful:
+                    msg = f'Set parameter {parameters[i].name} successful'
+                    if result.reason:
+                        msg += ': ' + result.reason
+                    print(msg)
+                else:
+                    msg = 'Set parameter failed'
+                    if result.reason:
+                        msg += ': ' + result.reason
+                    print(msg, file=sys.stderr)
