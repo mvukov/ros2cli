@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import argparse
 import sys
 
 from rcl_interfaces.msg import Parameter
@@ -28,6 +29,18 @@ from ros2param.api import ParameterNameCompleter
 from ros2param.verb import VerbExtension
 
 
+class RequireParameterPairAction(argparse.Action):
+    """Argparse action to validate parameter argument pairs."""
+
+    def __call__(self, parser, args, values, option_string=None):
+        if len(values) == 0:
+            parser.error('No parameters specified')
+            SystemExit(2)
+        if len(values) % 2:
+            parser.error('Must provide parameter name and value pairs')
+        setattr(args, self.dest, values)
+
+
 class SetVerb(VerbExtension):
     """Set parameter."""
 
@@ -37,26 +50,22 @@ class SetVerb(VerbExtension):
             'node_name', help='Name of the ROS node')
         arg.completer = NodeNameCompleter(
             include_hidden_nodes_key='include_hidden_nodes')
-
-        arg = parser.add_argument(
-            'parameters', nargs='*',
-            help='List of parameter name and value pairs i.e. "int_param 1 str_param hello_world"')
-        arg.completer = ParameterNameCompleter()
-
         parser.add_argument(
             '--include-hidden-nodes', action='store_true',
             help='Consider hidden nodes as well')
+        arg = parser.add_argument(
+            'parameters', nargs='*',
+            action=RequireParameterPairAction,
+            help='List of parameter name and value pairs i.e. "int_param 1 str_param hello_world"')
+        arg.completer = ParameterNameCompleter()
 
     def build_parameters(self, params):
         parameters = []
-        if len(params) % 2:
-            raise RuntimeError('Must pass list of parameter name and value pairs')
 
-        params = [(params[i], params[i+1]) for i in range(0, len(params), 2)]
-        for param_str in params:
+        for i in range(0, len(params), 2):
             parameter = Parameter()
-            parameter.name = param_str[0]
-            parameter.value = get_parameter_value(string_value=param_str[1])
+            parameter.name = params[i]
+            parameter.value = get_parameter_value(string_value=params[i+1])
             parameters.append(parameter)
 
         return parameters
@@ -65,8 +74,8 @@ class SetVerb(VerbExtension):
         with NodeStrategy(args) as node:
             node_names = get_node_names(
                 node=node, include_hidden_nodes=args.include_hidden_nodes)
-
         node_name = get_absolute_node_name(args.node_name)
+
         if node_name not in {n.full_name for n in node_names}:
             return 'Node not found'
 
@@ -76,14 +85,8 @@ class SetVerb(VerbExtension):
                 node=node, node_name=args.node_name, parameters=parameters)
             results = response.results
 
-            for result in results:
-                if result.successful:
-                    msg = 'Set parameter successful'
-                    if result.reason:
-                        msg += ': ' + result.reason
-                    print(msg)
-                else:
-                    msg = 'Setting parameter failed'
-                    if result.reason:
-                        msg += ': ' + result.reason
-                    print(msg, file=sys.stderr)
+            for i, result in enumerate(results):
+                print('Set parameter ' + parameters[i].name + ' ' +
+                      'successful' if result.successful else 'failed' +
+                      str(result.reason) if result.reason else '',
+                      file=sys.stderr if result.successful else sys.stdout)
