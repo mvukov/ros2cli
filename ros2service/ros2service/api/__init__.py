@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from rclpy.node import Node
 from time import sleep
 from rclpy.topic_or_service_is_hidden import topic_or_service_is_hidden
 from ros2cli.node.strategy import NodeStrategy
@@ -22,7 +23,7 @@ from rosidl_runtime_py.utilities import get_service
 import rclpy
 
 
-def get_service_names_and_types(*, node, include_hidden_services=False):
+def get_service_names_and_types(*, node: Node, include_hidden_services=False):
     service_names_and_types = node.get_service_names_and_types()
     if not include_hidden_services:
         service_names_and_types = [
@@ -37,47 +38,43 @@ def get_service_names(*, node, include_hidden_services=False):
     return [n for (n, t) in service_names_and_types]
 
 
-def get_service_class(node, service, blocking=False, include_hidden_services=False):
+def get_service_class(node: Node, service_name: str, blocking=False, include_hidden_services=False):
     """
     Load service type module for the given service.
 
     The service should be running for this function to find the service type.
     :param node: The node object of rclpy Node class.
-    :param service: The name of the service.
+    :param service_name: The name of the service.
     :param blocking: If blocking is True this function will wait for the service to start.
     :param include_hidden_services: Whether to include hidden services while finding the
     list of currently running services.
     :return:
     """
-    srv_class = _get_service_class(node, service, include_hidden_services)
+    srv_class = _get_service_class(node, service_name, include_hidden_services)
     if srv_class is not None:
         return srv_class
     elif blocking:
-        print(f'WARNING: service [{service}] does not appear to be started yet')
+        print(f'WARNING: service [{service_name}] does not appear to be started yet')
         while rclpy.ok():
-            srv_class = _get_service_class(node, service, include_hidden_services)
+            srv_class = _get_service_class(node, service_name, include_hidden_services)
             if srv_class is not None:
                 return srv_class
             sleep(0.1)
     else:
-        print(f'WARNING: service [{service}] does not appear to be started yet')
+        print(f'WARNING: service [{service_name}] does not appear to be started yet')
     return None
 
 
-def _get_service_class(node, service, include_hidden_services):
+def _get_service_class(node, service_name, include_hidden_services):
     service_names_and_types = get_service_names_and_types(
         node=node,
         include_hidden_services=include_hidden_services)
 
-    service_type = None
-    for (service_name, service_types) in service_names_and_types:
-        if service == service_name:
-            if len(service_types) > 1:
-                raise RuntimeError(
-                    f"Cannot echo service '{service}', as it contains more than one "
-                    f"type: [{', '.join(service_types)}]")
-        service_type = service_types[0]
-        break
+    service_name_and_type = list(filter(lambda x: x[0] == service_name, service_names_and_types))
+    if len(service_name_and_type) != 1:
+        raise RuntimeError(
+            f"Cannot echo '{service_name}': type not found")
+    service_type = service_name_and_type[0][1][0]
 
     if service_type is None:
         return None
