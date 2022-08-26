@@ -35,7 +35,6 @@ class RequireParameterPairAction(argparse.Action):
     def __call__(self, parser, args, values, option_string=None):
         if len(values) == 0:
             parser.error('No parameters specified')
-            SystemExit(2)
         if len(values) % 2:
             parser.error('Must provide parameter name and value pairs')
         setattr(args, self.dest, values)
@@ -61,13 +60,11 @@ class SetVerb(VerbExtension):
 
     def build_parameters(self, params):
         parameters = []
-
         for i in range(0, len(params), 2):
             parameter = Parameter()
             parameter.name = params[i]
             parameter.value = get_parameter_value(string_value=params[i+1])
             parameters.append(parameter)
-
         return parameters
 
     def main(self, *, args):  # noqa: D102
