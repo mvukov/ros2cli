@@ -46,7 +46,11 @@ def spawn_daemon(args, wait_until_spawned=None, debug=False):
     ros_domain_id = int(os.environ.get('ROS_DOMAIN_ID', 0))
     kwargs = {}
     if platform.system() != 'Windows':
-        cmd = ['_ros2_daemon']
+        cmd = [
+            sys.executable,
+            os.path.join(
+                os.path.dirname(os.path.dirname(__file__)),
+                'daemon/__init__.py')]
     else:
         # allow closing the shell the daemon was spawned from
         # while the daemon is still running
